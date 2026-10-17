@@ -26,12 +26,12 @@ def test_valid_event_is_created():
 def test_invalid_ip_is_rejected():
     with pytest.raises(ValidationError) as exc_info:
         make_event(source_ip="abc")
-    assert exc_info.value.errors()[0]["loc"] == ("source_ip")
+    assert exc_info.value.errors()[0]["loc"] == ("source_ip",)
 
 def test_naive_timestamp_is_rejeected():
     with pytest.raises(ValidationError) as exc_info:
         make_event(timestamp=datetime(2026, 10, 1, 3, 0, 0))
-    assert failed_fields(exc_info) == ("timestamp")
+    assert failed_fields(exc_info) == ["timestamp"]
 
 def test_username_at_limit_is_accepted():
     assert make_event(username="a" * 64).username == "a" * 64
