@@ -1,7 +1,8 @@
+from asyncio import events
 import pytest
 from random import paretovariate
 from datetime import datetime, timezone
-from src.ingestion.parser import parse_line
+from src.ingestion.parser import parse_line, parse_file
 
 FAILED = "Oct  1 03:12:05 srv01 sshd[2211]: Failed password for root from 203.0.113.5 port 41022 ssh2"
 INVALID_USER = "Oct  1 03:12:09 srv01 sshd[2213]: Failed password for invalid user admin from 203.0.113.5 port 41030 ssh2"
@@ -39,3 +40,18 @@ def test_irrelevant_line_returns_none():
 def test_hostile_or_malformed_input_returns_none(line):
     assert parse_line(line, 2026) is None
 
+def test_parse_file_skips_irrelevant_lines(tmp_path):
+    log = tmp_path / "auth.log"
+    log.write_text("\n".join([FAILED, IRRELEVANT, ACCEPTED]) + "\n")
+    events = parse_file(log, 2026)
+    assert [e.outcome for e in events] == ["failure", "success"]
+
+def test_parse_file_empty_file_returns_empty_list(tmp_path):
+    log = tmp_path / "auth.log"
+    log.write_text("")
+    assert parse_file(log, 2026) == []
+
+def test_parse_file_survives_invalid_bytes(tmp_path):
+    log = tmp_path / "auth.log"
+    log.write_bytes(FAILED.encode() + b"\n\xff\xfe garbage\n" + ACCEPTED.encode() + b"\n")
+    assert len(parse_file(log, 2026)) == 2

@@ -1,3 +1,4 @@
+from collections.abc import Iterable
 import re
 from src.ingestion.models import AuthEvent
 from datetime import datetime, timezone
@@ -34,3 +35,15 @@ def parse_line(line: str, year: int) -> AuthEvent | None:
         )
     except (ValueError, ValidationError):
         return None
+
+def parse_lines(lines: Iterable[str], year: int) -> list[AuthEvent]:
+    events = []
+    for line in lines:
+        event = parse_line(line, year)
+        if event is not None:
+            events.append(event)
+    return events
+
+def parse_file(path: str, year: int) -> list[AuthEvent]:
+    with open(path, encoding = "UTF-8", errors = "replace") as f:
+        return parse_lines(f, year) 
