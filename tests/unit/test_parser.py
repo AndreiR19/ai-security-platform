@@ -1,4 +1,3 @@
-from asyncio import events
 import pytest
 from random import paretovariate
 from datetime import datetime, timezone
