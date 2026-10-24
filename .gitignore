@@ -2,3 +2,4 @@ __pycache__/
 .pytest.cache
 .venv
 experiment
+docs/ghid_complet_repo.md
