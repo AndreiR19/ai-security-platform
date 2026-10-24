@@ -6,12 +6,13 @@ import pytest
 from scripts.generate_logs import brute_force, format_line
 from src.ingestion.parser import parse_line
 
-START = datetime(2026, 10, 1, 3, 0, 0, tzinfo = UTC)
+START = datetime(2026, 10, 1, 3, 0, 0, tzinfo=UTC)
 IP = "203.0.113.5"
+
 
 def test_format_line_round_trips_through_parser():
     rng = random.Random(1)
-    ts = datetime(2026, 10, 1, 3, 12, 5, tzinfo = UTC)
+    ts = datetime(2026, 10, 1, 3, 12, 5, tzinfo=UTC)
     line = format_line(ts, "failure", "root", "203.0.113.5", rng)
     event = parse_line(line, 2026)
     assert event is not None
@@ -19,6 +20,7 @@ def test_format_line_round_trips_through_parser():
     assert event.username == "root"
     assert str(event.source_ip) == "203.0.113.5"
     assert event.outcome == "failure"
+
 
 def test_format_line_pads_single_digit_day_with_two_spaces():
     rng = random.Random(1)
@@ -31,6 +33,7 @@ def test_format_line_pads_single_digit_day_with_two_spaces():
     assert event.username == "root"
     assert str(event.source_ip) == "203.0.113.5"
     assert event.outcome == "failure"
+
 
 def test_brute_force_events_are_failures_for_root_from_given_ip():
     events, _ = brute_force(random.Random(7), START, IP)

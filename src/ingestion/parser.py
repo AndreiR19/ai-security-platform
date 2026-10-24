@@ -19,8 +19,9 @@ _PATTERN = re.compile(
 
 _OUTCOMES = {"Failed": "failure", "Accepted": "success"}
 
+
 def parse_line(line: str, year: int) -> AuthEvent | None:
-    line = line.rstrip("\n") # elimina linia de la final ca sa ajute regex ul
+    line = line.rstrip("\n")  # elimina linia de la final ca sa ajute regex ul
     match = _PATTERN.match(line)
     if match is None:
         return None
@@ -29,14 +30,15 @@ def parse_line(line: str, year: int) -> AuthEvent | None:
         timestamp = datetime.strptime(f"{year} {ts_text}", "%Y %b %d %H:%M:%S")
         timestamp = timestamp.replace(tzinfo=UTC)
         return AuthEvent(
-            timestamp = timestamp,
-            source_ip = match["ip"],
-            username = match["user"],
+            timestamp=timestamp,
+            source_ip=match["ip"],
+            username=match["user"],
             outcome=_OUTCOMES[match["kind"]],
-            raw = line,
+            raw=line,
         )
     except (ValueError, ValidationError):
         return None
+
 
 def parse_lines(lines: Iterable[str], year: int) -> list[AuthEvent]:
     events = []
@@ -46,6 +48,7 @@ def parse_lines(lines: Iterable[str], year: int) -> list[AuthEvent]:
             events.append(event)
     return events
 
+
 def parse_file(path: str, year: int) -> list[AuthEvent]:
-    with open(path, encoding = "UTF-8", errors = "replace") as f:
-        return parse_lines(f, year) 
+    with open(path, encoding="UTF-8", errors="replace") as f:
+        return parse_lines(f, year)

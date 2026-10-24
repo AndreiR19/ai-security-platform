@@ -19,12 +19,14 @@ def test_failed_login():
     assert event.username == "root"
     assert str(event.source_ip) == "203.0.113.5"
 
+
 def test_invalid_user_login():
     event = parse_line(INVALID_USER, 2026)
     assert event.timestamp == datetime(2026, 10, 1, 3, 12, 9, tzinfo=UTC)
     assert event.outcome == "failure"
     assert event.username == "admin"
     assert str(event.source_ip) == "203.0.113.5"
+
 
 def test_accepted_login():
     event = parse_line(ACCEPTED, 2026)
@@ -33,12 +35,15 @@ def test_accepted_login():
     assert event.username == "alice"
     assert str(event.source_ip) == "10.0.0.12"
 
+
 def test_irrelevant_line_returns_none():
     assert parse_line(IRRELEVANT, 2026) is None
+
 
 @pytest.mark.parametrize("line", [BAD_IP, LONG_USER, "", "garbage"])
 def test_hostile_or_malformed_input_returns_none(line):
     assert parse_line(line, 2026) is None
+
 
 def test_parse_file_skips_irrelevant_lines(tmp_path):
     log = tmp_path / "auth.log"
@@ -46,12 +51,16 @@ def test_parse_file_skips_irrelevant_lines(tmp_path):
     events = parse_file(log, 2026)
     assert [e.outcome for e in events] == ["failure", "success"]
 
+
 def test_parse_file_empty_file_returns_empty_list(tmp_path):
     log = tmp_path / "auth.log"
     log.write_text("")
     assert parse_file(log, 2026) == []
 
+
 def test_parse_file_survives_invalid_bytes(tmp_path):
     log = tmp_path / "auth.log"
-    log.write_bytes(FAILED.encode() + b"\n\xff\xfe garbage\n" + ACCEPTED.encode() + b"\n")
+    log.write_bytes(
+        FAILED.encode() + b"\n\xff\xfe garbage\n" + ACCEPTED.encode() + b"\n"
+    )
     assert len(parse_file(log, 2026)) == 2
