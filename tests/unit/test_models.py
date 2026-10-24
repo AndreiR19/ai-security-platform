@@ -1,7 +1,10 @@
-from datetime import datetime, UTC
+from datetime import UTC, datetime
+
 import pytest
 from pydantic import ValidationError
+
 from src.ingestion.models import AuthEvent
+
 
 def make_event(**overrides):
     data = {

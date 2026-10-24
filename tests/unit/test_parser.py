@@ -1,5 +1,7 @@
-from datetime import datetime, UTC
+from datetime import UTC, datetime
+
 import pytest
+
 from src.ingestion.parser import parse_file, parse_line
 
 FAILED = "Oct  1 03:12:05 srv01 sshd[2211]: Failed password for root from 203.0.113.5 port 41022 ssh2"

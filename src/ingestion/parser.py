@@ -1,7 +1,9 @@
 import re
 from collections.abc import Iterable
-from datetime import datetime, UTC
+from datetime import UTC, datetime
+
 from pydantic import ValidationError
+
 from src.ingestion.models import AuthEvent
 
 _PATTERN = re.compile(

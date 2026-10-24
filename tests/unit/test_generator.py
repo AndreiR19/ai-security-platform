@@ -1,6 +1,8 @@
 import random
-from datetime import datetime, UTC
+from datetime import UTC, datetime
+
 import pytest
+
 from scripts.generate_logs import brute_force, format_line
 from src.ingestion.parser import parse_line
 
