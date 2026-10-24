@@ -1,8 +1,8 @@
-from collections.abc import Iterable
 import re
-from src.ingestion.models import AuthEvent
-from datetime import datetime, timezone
+from collections.abc import Iterable
+from datetime import datetime, UTC
 from pydantic import ValidationError
+from src.ingestion.models import AuthEvent
 
 _PATTERN = re.compile(
     r"^(?P<ts>\w{3}\s+\d{1,2} \d{2}:\d{2}:\d{2}) "
@@ -25,7 +25,7 @@ def parse_line(line: str, year: int) -> AuthEvent | None:
     try:
         ts_text = " ".join(match["ts"].split())
         timestamp = datetime.strptime(f"{year} {ts_text}", "%Y %b %d %H:%M:%S")
-        timestamp = timestamp.replace(tzinfo=timezone.utc)
+        timestamp = timestamp.replace(tzinfo=UTC)
         return AuthEvent(
             timestamp = timestamp,
             source_ip = match["ip"],

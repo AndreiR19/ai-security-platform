@@ -1,11 +1,11 @@
+from datetime import datetime, UTC
 import pytest
-from datetime import datetime, timezone
-from src.ingestion.models import AuthEvent
 from pydantic import ValidationError
+from src.ingestion.models import AuthEvent
 
 def make_event(**overrides):
     data = {
-        "timestamp": datetime(2026, 10, 1, 3, 0, 0, tzinfo=timezone.utc),
+        "timestamp": datetime(2026, 10, 1, 3, 0, 0, tzinfo = UTC),
         "source_ip": "203.0.113.5",
         "username": "root",
         "outcome": "failure",

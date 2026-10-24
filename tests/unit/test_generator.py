@@ -1,18 +1,15 @@
-from scripts.generate_logs import brute_force
-import linecache
 import random
-from datetime import timezone, datetime
-from scripts.generate_logs import format_line
-from src.ingestion.parser import parse_line
+from datetime import datetime, UTC
 import pytest
 from scripts.generate_logs import brute_force, format_line
+from src.ingestion.parser import parse_line
 
-START = datetime(2026, 10, 1, 3, 0, 0, tzinfo = timezone.utc)
+START = datetime(2026, 10, 1, 3, 0, 0, tzinfo = UTC)
 IP = "203.0.113.5"
 
 def test_format_line_round_trips_through_parser():
     rng = random.Random(1)
-    ts = datetime(2026, 10, 1, 3, 12, 5, tzinfo = timezone.utc)
+    ts = datetime(2026, 10, 1, 3, 12, 5, tzinfo = UTC)
     line = format_line(ts, "failure", "root", "203.0.113.5", rng)
     event = parse_line(line, 2026)
     assert event is not None
@@ -23,7 +20,7 @@ def test_format_line_round_trips_through_parser():
 
 def test_format_line_pads_single_digit_day_with_two_spaces():
     rng = random.Random(1)
-    ts = datetime(2026, 10, 1, 3, 12, 5, tzinfo=timezone.utc)
+    ts = datetime(2026, 10, 1, 3, 12, 5, tzinfo=UTC)
     line = format_line(ts, "failure", "root", "203.0.113.5", rng)
     event = parse_line(line, 2026)
     assert event is not None

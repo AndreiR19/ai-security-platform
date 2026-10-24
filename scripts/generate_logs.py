@@ -1,6 +1,5 @@
 #from asyncio import events
-import random
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
 
 HOST = "srv01"
 USERS = ["alice", "bob", "carol", "dave", "erin"]
