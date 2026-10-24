@@ -2,3 +2,4 @@ __pycache__
 .pytest.cache
 .venv
 experiment
+scripts/__pycache__
