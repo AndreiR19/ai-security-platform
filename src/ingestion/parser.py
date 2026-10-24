@@ -18,7 +18,7 @@ _PATTERN = re.compile(
 _OUTCOMES = {"Failed": "failure", "Accepted": "success"}
 
 def parse_line(line: str, year: int) -> AuthEvent | None:
-    line = line.rstrip("\n")
+    line = line.rstrip("\n") # elimina linia de la final ca sa ajute regex ul
     match = _PATTERN.match(line)
     if match is None:
         return None
