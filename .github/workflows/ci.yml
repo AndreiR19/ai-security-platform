@@ -1,0 +1,22 @@
+name: CI
+
+on: 
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:  #pasii de rulare
+      - uses: actions/checkout@v4 #codul de pe masina
+      - uses: actions/setup-python@v5 #instaleaza aceeasi versiune de python(3.12) si pastreaza cache pentru pip
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requrements
+      - run: ruff check .
+      - run: pytest -v 
