@@ -4,7 +4,6 @@ from datetime import UTC, datetime
 
 import pytest
 
-
 from scripts.generate_logs import brute_force, format_line, password_spraying
 from src.ingestion.parser import parse_line
 
