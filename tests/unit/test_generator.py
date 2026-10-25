@@ -1,9 +1,10 @@
 import random
+from collections import Counter
 from datetime import UTC, datetime
 
 import pytest
 
-from collections import Counter
+
 from scripts.generate_logs import brute_force, format_line, password_spraying
 from src.ingestion.parser import parse_line
 
