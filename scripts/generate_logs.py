@@ -47,3 +47,6 @@ def password_spraying(rng, start, ip):
         "end": events[-1][0].isoformat() 
     }
     return events, label
+
+def compromise(rng, start, ip):
+    return None
