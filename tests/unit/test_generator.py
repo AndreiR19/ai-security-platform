@@ -3,7 +3,8 @@ from datetime import UTC, datetime
 
 import pytest
 
-from scripts.generate_logs import brute_force, format_line
+from collections import Counter
+from scripts.generate_logs import brute_force, format_line, password_spraying
 from src.ingestion.parser import parse_line
 
 START = datetime(2026, 10, 1, 3, 0, 0, tzinfo=UTC)
@@ -57,3 +58,22 @@ def test_brute_force_label_matches_events():
     assert label["source_ip"] == IP
     assert label["start"] == events[0][0].isoformat()
     assert label["end"] == events[-1][0].isoformat()
+
+def test_spraying_is_deterministic():
+    a = password_spraying(random.Random(7), START, IP)
+    b = password_spraying(random.Random(7), START, IP)
+    assert a == b
+
+def test_spraying_hits_many_distinct_accounts_from_one_ip():
+    events, _ = password_spraying(random.Random(7), START, IP)
+    parsed = [parse_line(line, 2026) for _, line in events]
+    assert all(e is not None and e.outcome == "failure" for e in parsed)
+    assert {str(e.source_ip) for e in parsed} == {IP}
+    assert len({e.username for e in parsed}) == 12
+
+@pytest.mark.parametrize("seed", range(20))
+def test_spraying_never_tries_an_account_more_than_twice(seed):
+    events, _ = password_spraying(random.Random(seed), START, IP)
+    attempts = Counter(parse_line(line, 2026).username for _, line in events)
+    assert max(attempts.values()) <= 2
+
