@@ -49,4 +49,17 @@ def password_spraying(rng, start, ip):
     return events, label
 
 def compromise(rng, start, ip):
-    return None
+    events = []
+    t = start
+    for _ in range(rng.randint(8, 12)):
+        t += timedelta(seconds=rng.randint(2, 5))
+        events.append((t, format_line(t, "failure", "alice", ip, rng)))
+    t += timedelta(seconds=3)
+    events.append((t, format_line(t, "success", "alice", ip, rng)))
+    label = {
+        "scenario": "compromise_after_bruteforce",
+        "source_ip": ip,
+        "start": events[0][0].isoformat(),
+        "end": events[-1][0].isoformat() 
+    }
+    return events, label

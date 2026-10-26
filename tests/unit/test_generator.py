@@ -1,12 +1,15 @@
-from pydantic.plugin._schema_validator import events
-from scripts.generate_logs import compromise
 import random
 from collections import Counter
 from datetime import UTC, datetime
 
 import pytest
 
-from scripts.generate_logs import brute_force, format_line, password_spraying
+from scripts.generate_logs import (
+    brute_force,
+    compromise,
+    format_line,
+    password_spraying,
+)
 from src.ingestion.parser import parse_line
 
 START = datetime(2026, 10, 1, 3, 0, 0, tzinfo=UTC)
@@ -82,7 +85,7 @@ def test_spraying_never_tries_an_account_more_than_twice(seed):
 def test_compromise_is_deterministic():
     a = compromise(random.Random(7), START, IP)
     b = compromise(random.Random(7), START, IP)
-    return a == b
+    assert a == b
 
 @pytest.mark.parametrize("seed", range(20))
 def test_compromise_is_failures_then_one_success(seed):
