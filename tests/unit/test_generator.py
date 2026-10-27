@@ -5,9 +5,11 @@ from datetime import UTC, datetime
 import pytest
 
 from scripts.generate_logs import (
+    USERS,
     brute_force,
     compromise,
     format_line,
+    normal_traffic,
     password_spraying,
 )
 from src.ingestion.parser import parse_line
@@ -102,3 +104,26 @@ def test_compromise_targets_one_valid_account_from_one_ip():
     assert {e.username for e in parsed} == {"alice"}
     assert {str(e.source_ip) for e in parsed} == {IP}
     assert all("invalid user" not in line for _, line in events)
+
+def test_normal_traffic_is_deterministic():
+    a = normal_traffic(random.Random(7), START, 24)
+    b = normal_traffic(random.Random(7), START, 24)
+    assert a == b
+
+def test_normal_traffic_uses_known_users_from_internal_ip():
+    events = normal_traffic(random.Random(7), START, 24)
+    parsed = [parse_line(line, 2026) for _, line in events]
+    assert all(e is not None for e in parsed)
+    assert {e.username for e in parsed} == set(USERS)
+    assert all(str(e.source_ip).startswith("10.0.0.") for e in parsed)
+
+def test_normal_traffic_failures_are_typos_followed_by_success():
+    events = normal_traffic(random.Random(7), START, 24)
+    parsed = [parse_line(line, 2026) for _, line in events]
+    for user in USERS:
+        mine = sorted([e for e in parsed if e.username == user], key=lambda e: e.timestamp)
+        for i, event in enumerate(mine):
+            if event.outcome == "failure":
+                nxt = mine[i + 1]
+                assert nxt.outcome == "success"
+                assert (nxt.timestamp - event.timestamp).total_seconds() <= 20

@@ -63,3 +63,15 @@ def compromise(rng, start, ip):
         "end": events[-1][0].isoformat() 
     }
     return events, label
+
+def normal_traffic(rng, start, hours):
+    events = []
+    for user in USERS:
+        ip = f"10.0.0.{rng.randint(10, 250)}"
+        for _ in range(rng.randint(3, 8)):
+            t = start + timedelta(seconds=rng.randint(0, hours *3600))
+            if rng.random() < 0.15:
+                events.append((t, format_line(t, "failure", user, ip, rng)))
+                t += timedelta(seconds=rng.randint(3, 20))
+            events.append((t, format_line(t, "success", user, ip, rng)))
+    return events
