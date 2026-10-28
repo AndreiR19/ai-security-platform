@@ -75,3 +75,9 @@ def normal_traffic(rng, start, hours):
                 t += timedelta(seconds=rng.randint(3, 20))
             events.append((t, format_line(t, "success", user, ip, rng)))
     return events
+
+def build_dataset(seed):
+    return None
+
+def main(argv=None):
+    return None

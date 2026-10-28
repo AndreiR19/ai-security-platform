@@ -1,7 +1,7 @@
 import random
 from collections import Counter
 from datetime import UTC, datetime
-
+import json
 import pytest
 
 from scripts.generate_logs import (
@@ -11,6 +11,8 @@ from scripts.generate_logs import (
     format_line,
     normal_traffic,
     password_spraying,
+    build_dataset,
+    main,
 )
 from src.ingestion.parser import parse_line
 
@@ -127,3 +129,27 @@ def test_normal_traffic_failures_are_typos_followed_by_success():
                 nxt = mine[i + 1]
                 assert nxt.outcome == "success"
                 assert (nxt.timestamp - event.timestamp).total_seconds() <= 20
+
+def test_dataset_is_deterministic():
+    assert build_dataset(42) == build_dataset(42)
+
+def test_dataset_lines_are_sorted_by_time_and_all_parse():
+    lines, _ = build_dataset(42)
+    parsed = [parse_line(line, 2026) for line in lines]
+    assert all(e is not None for e in parsed)
+    timestamps = [e.timestamp for e in parsed]
+    assert timestamps == sorted(timestamps)
+
+def test_dataset_has_three_labeled_attacks_present_in_log():
+    lines, labels = build_dataset(42)
+    assert {item["scenario"] for item in labels} == {"brute_force", "password_spraying", "compromise_after_bruteforce"}
+    for item in labels:
+        assert any(item["source_ip"] in line for line in lines)
+
+def test_main_writes_log_and_labels(tmp_path):
+    main(["--seed", "1", "--out", str(tmp_path)])
+    lines = (tmp_path / "auth.log").read_text().splitlines()
+    labels = json.loads((tmp_path / "labels.json").read_text())
+    assert len(lines) > 0
+    assert len(labels) == 3
+    
