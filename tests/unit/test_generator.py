@@ -8,12 +8,12 @@ import pytest
 from scripts.generate_logs import (
     USERS,
     brute_force,
+    build_dataset,
     compromise,
     format_line,
+    main,
     normal_traffic,
     password_spraying,
-    build_dataset,
-    main,
 )
 from src.ingestion.parser import parse_line
 
