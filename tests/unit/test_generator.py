@@ -1,7 +1,8 @@
+import json
 import random
 from collections import Counter
 from datetime import UTC, datetime
-import json
+
 import pytest
 
 from scripts.generate_logs import (
