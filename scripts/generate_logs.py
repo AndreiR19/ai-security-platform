@@ -1,5 +1,8 @@
-# from asyncio import events
-from datetime import timedelta
+import argparse
+import json
+import random
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 HOST = "srv01"
 USERS = ["alice", "bob", "carol", "dave", "erin"]
@@ -77,7 +80,36 @@ def normal_traffic(rng, start, hours):
     return events
 
 def build_dataset(seed):
-    return None
+    rng = random.Random(seed)
+    start = datetime(2026, 10, 1, 0, 0, 0, tzinfo=UTC)
+    events = normal_traffic(rng, start, 24)
+    labels = []
+    scenarios = [
+        (brute_force, "203.0.113.5", 3),
+        (password_spraying, "198.51.100.23", 9),
+        (compromise, "203.0.113.77", 15),
+    ]
+    for scenario, ip, hour in scenarios:
+        offset = timedelta(hours=hour, minutes=rng.randint(0, 40))
+        attack_events, label = scenario(rng, start + offset, ip)
+        events += attack_events
+        labels.append(label)
+    events.sort(key=lambda e: e[0])
+    return [line for _, line in events], labels
 
 def main(argv=None):
-    return None
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--out", default="data/samples")
+    args = parser.parse_args(argv)
+
+    lines, labels = build_dataset(args.seed)
+    out = Path(args.out)
+    out.mkdir(parents=True, exist_ok=True)
+    (out / "auth.log").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    (out / "labels.json").write_text(json.dumps(labels, indent=2), encoding="utf-8")
+    print(f"{len(lines)} lines, {len(labels)} labeled attacks -> {out}")
+
+
+if __name__ == "__main__":
+    main()
