@@ -1,5 +1,3 @@
-from detection.models import Alert
-from asyncio import events
 from datetime import UTC, datetime, timedelta
 
 from src.detection.rules import detect_brute_force
