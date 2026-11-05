@@ -5,11 +5,12 @@ O platforma de operatiuni de securitate bazata pe inteligenta artificiala, conce
 ## Cerinte
 
 - Python 3.12+
-- Dependinte: pydantic, pytest, uff
+- Dependinte: pydantic, pytest, 
+ruff
 
 ## Pornire
 
-`ash
+Bash
 # Creeaza si activeaza mediul virtual
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
@@ -18,6 +19,6 @@ python -m venv .venv
 pip install -r requirements.txt
 
 # Ruleaza testele
-pytest
-`
+pytest -v
+
 
