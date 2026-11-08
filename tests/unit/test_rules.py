@@ -1,5 +1,6 @@
-import pytest
 from datetime import UTC, datetime, timedelta
+
+import pytest
 
 from src.detection.rules import detect_brute_force
 from src.ingestion.models import AuthEvent
@@ -71,7 +72,7 @@ def test_only_the_ip_over_threshold_raises_an_allert():
     assert len(alerts) == 1
     assert str(alerts[0].source_ip) == "203.0.113.5"
 
-@pytest.mark.parametrize("count, expected_alert", [(2, 0), (3, 1), (4, 1)])
+@pytest.mark.parametrize("count, expected_alerts", [(2, 0), (3, 1), (4, 1)])
 def test_threshold_boundary(count, expected_alerts):
     alerts = detect_brute_force(failures(range(count)), threshold=3)
     assert len(alerts) == expected_alerts
