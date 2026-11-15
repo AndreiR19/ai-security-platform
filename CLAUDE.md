@@ -40,7 +40,7 @@ The owner wants to **write the project himself and learn by doing**.
 - After each step, suggest a way to verify it (a test to write, a command to run, an expected output).
 - When reviewing the owner's code, give honest, specific feedback: correctness first, then security, then readability. Point out bugs and weak design instead of just approving.
 - The owner is a third-year IT student with prior backend/frontend experience (Java/Spring Boot, Angular, PostgreSQL, GitLab CI/CD). Relating new ideas to those can help, but do not assume deep Python or security knowledge.
-- Communication language: the owner writes in Romanian or English. Reply in the language he uses. The subagents in Section 12 are configured to always reply in Romanian. **All code, comments, docstrings, commit messages, and documentation in this repo are in English.**
+- Communication language: the owner writes only in English. Reply in the language he uses. `mentor` replies in the owner's language; the other subagents in Section 12 reply in English. **All code, comments, docstrings, commit messages, and documentation in this repo are in English.**
 
 ---
 
@@ -76,18 +76,44 @@ Do not introduce new frameworks or major dependencies without discussing the tra
 
 Stay inside the current stage. Do not jump ahead (for example, do not add Docker or React while Stage 1 is unfinished) unless the owner asks.
 
-### Current Status (Stage 1)
+### Current Status (Stage 1) — last updated 2026-11-09
 
 Done:
 - Repo created and configured (virtual environment, `pyproject.toml` for pytest).
-- `AuthEvent` model in `src/ingestion/models.py`.
-- Auth log parser in `src/ingestion/parser.py`, with passing unit tests.
-- Pushed to GitHub.
+- `AuthEvent` model (`src/ingestion/models.py`), `Alert` model (`src/detection/models.py`).
+- Parser: `parse_line`, `parse_lines`, `parse_file` in `src/ingestion/parser.py`, with tests.
+- Synthetic generator: `scripts/generate_logs.py` -> `data/samples/auth.log` + `labels.json`.
+- Rule 1: `detect_brute_force` (T1110.001) in `src/detection/rules.py`, with tests.
+- Rule 2: `detect_password_spraying` (T1110.003), committed in `cac55bc`.
+- Partial CI already exists: `.github/workflows/ci.yml` runs ruff + pytest.
 
-Next, in order:
-1. `parse_file` (read a log file and yield parsed events, handling malformed lines).
-2. Synthetic log generator (benign traffic plus labeled suspicious patterns).
-3. Detection rules (for example: repeated failed logins, brute force then success, login from unusual source).
+Next, in order (tick each box when done):
+
+- [ ] **Step 1: Finish the spraying rule.**
+  - [x] Test fixes (sorting, window leaving, non-default window, mixed outcome, severity + MITRE).
+  - [x] Merge `attempts` into `spray`; docstrings + type hints in `rules.py`.
+  - [ ] Decide: case-sensitive or case-insensitive usernames (Linux treats `Root` and `root` as different).
+  - [ ] Run `mentor` `[REVIEW]`, then `security`, then commit (uncommitted changes: `rules.py`, `test_rules.py`, `.gitignore`).
+- [ ] **Step 2: Housekeeping + rule-structure decision.**
+  - [ ] Fix `.gitignore`: `.pytest_cache` (done, uncommitted), add `.env` and `.ruff_cache`.
+  - [ ] Make Section 6 match the real layout (`scripts/`, `data/samples/`), or decide to move the files.
+  - [ ] Choose how rules share code (ask `mentor` in `[DESIGN]` mode): A = separate code per rule; B = shared sliding-window helper `find_bursts`; C = shared `group_events` + `make_alert` + `RuleSpec`, separate scan loops (architect recommends C, as its own `refactor(detection)` commit with no test changes).
+  - [ ] Write the ADR yourself: `docs/adr/0001-detection-rule-structure.md` (Context, Options, Decision, Consequences, Revisit when).
+- [ ] **Step 3: Rule 3, `detect_success_after_failures`** (success after >= N failures within T seconds, per IP + user).
+  - Answer first: does a success reset the count? Is the success part of the evidence? Severity `high` or `critical`? MITRE T1110 + T1078?
+  - The threshold must be at least 2 (normal traffic has one mistyped password followed by a success) and at most 8 (or the generator's compromise scenario is missed).
+  - Done when: it fires on `build_dataset(42)` only for 203.0.113.77.
+- [ ] **Step 4: End-to-end pipeline + integration test.**
+  - `src/detection/engine.py`: `run_rules(events: Sequence[AuthEvent], rules: Sequence[Rule] = ALL_RULES) -> list[Alert]`; `scripts/detect.py` CLI; `tests/integration/test_pipeline.py`.
+  - Pass the rules a list, not a generator (the first rule would use it up and the others would see nothing).
+  - `parse_file` should log skipped lines safely (`repr()` + length limit, against log injection), and its type hint should accept `Path`.
+  - Done when: `build_dataset(42)` produces alerts for exactly 203.0.113.5, 198.51.100.23 and 203.0.113.77, and none for `10.0.0.*`.
+- [ ] **Step 5: Measure the rules against `labels.json`** (precision and recall).
+  - `match_alerts(...) -> tuple[int, int, int]` (TP, FP, FN; match on same IP + overlapping time; one attack may produce two alerts).
+  - `precision_recall(tp, fp, fn) -> tuple[float, float]`. Decide: `scripts/` or `evals/`.
+  - Done when: seeds 0–19 give recall 1.0 and no false positives on `10.0.0.*`. **This closes Stage 1.**
+
+After Stage 1, finish Stage 2: pin versions in `requirements.txt`, add bandit + pip-audit to CI, use feature branches and PRs instead of committing to `main`.
 
 Update this section as the project progresses.
 
@@ -135,7 +161,7 @@ pip install -e ".[dev]"
 # Run tests
 pytest -v
 
-# Lint (used by the reviewer agent)
+# Lint (used by mentor in [REVIEW] mode)
 ruff check src/ tests/
 
 # Security checks (from Stage 2 on, also run in CI)
@@ -214,36 +240,34 @@ A step is done when:
 
 ## 12. Subagents
 
-Five subagents live in `.claude/agents/`. Each has one job and a deliberately small toolset. They support the rules in this file; they never override it.
+Three subagents live in `.claude/agents/`. They support the rules in this file; they never override it.
 
 | Agent | Use it when | Tools | Edits files? | Output |
 |---|---|---|---|---|
-| `architect` | Designing a module, choosing between approaches, planning a stage, "how should I structure X" | Read, Grep, Glob | No | Current architecture summary, 2-3 options with trade-offs, one recommendation, folder trees and signatures only, a prompt to write an ADR |
-| `developer` | Building a feature step by step (parser, generator, rules, API, Docker, CI) | Read, Write, Edit, Grep, Glob, Bash | Yes, only the current step | Concept explanation, then the owner tries the step, then review; code only on "scrie tu" or when stuck |
-| `reviewer` | After finishing a function, module, or test | Read, Grep, Glob, Bash (pytest, ruff, git diff only) | No | Issues grouped as bugs / design / readability / missing tests, each with a hint, one positive point, a verdict |
+| `mentor` | Designing, building, and reviewing a feature in one session (parser, generator, rules, API, Docker, CI). Works in one explicit mode at a time: `[DESIGN]`, `[BUILD]`, `[REVIEW]` | Read, Write, Edit, Grep, Glob, Bash | Only in `[BUILD]`, only the current step, after asking | `[DESIGN]`: architecture summary, 2-3 options with trade-offs, one recommendation, trees and signatures only, an ADR prompt. `[BUILD]`: concept explanation, the owner tries the step, code only on "scrie tu" or when stuck. `[REVIEW]`: issues grouped as bugs / design / readability / missing tests, each with a hint, one positive point, a verdict |
 | `security` | After finishing a feature and before committing, or for any vulnerability or secure-design question | Read, Grep, Glob, Bash (bandit, pip-audit, semgrep, pytest only) | No | Findings with exploit path, severity, OWASP/CWE, a short secure example, and a prioritized list (fix now / fix later / accept) |
 | `ai-engineer` | Working on the AI analyst (Stage 4), picking an LLM or API vs local, prompt and output-schema design, prompt-injection testing, evaluating AI output, adding scikit-learn detection | Read, Grep, Glob, Bash (pytest and evals/ scripts only) | No | Problem restatement, check whether AI is really needed, 2-3 approaches with trade-offs, a short schema or prompt skeleton, how to measure it, an ADR prompt |
 
 ### Recommended flow
 
 ```
-architect  ->  developer (small steps)  ->  reviewer (per function/module)  ->  security (per feature)  ->  commit
+mentor [DESIGN]  ->  mentor [BUILD] (small steps)  ->  mentor [REVIEW] (per function/module)  ->  security (per feature)  ->  commit
 ```
 
-- **Before coding a new module:** ask `architect`. The owner makes the final decision and writes the ADR himself.
-- **While coding:** `developer` works in steps of roughly 15-20 lines. If a design decision appears, it stops and sends the owner back to `architect`.
-- **After each function or module:** `reviewer` runs `pytest`, `ruff`, and `git diff`, then gives a verdict.
+- **Before coding a new module:** `mentor` in `[DESIGN]` mode. The owner makes the final decision and writes the ADR himself.
+- **While coding:** `mentor` in `[BUILD]` mode works in steps of roughly 15-20 lines. If a design decision appears, it stops and switches to `[DESIGN]`.
+- **After each function or module:** `mentor` in `[REVIEW]` mode runs `pytest`, `ruff`, and `git diff`, then gives a verdict.
 - **At Stage 4 and for any ML work:** consult `ai-engineer` before designing the analyst or a model, and again to evaluate it. Pair it with `security` for prompt-injection tests.
 - **After each feature, before committing:** `security` runs the scanners and reviews against the platform-specific risks below.
 
 ### Rules that apply to every agent
 
 1. The collaboration model in Section 3 always wins: guide first, write code only for the piece the owner is stuck on.
-2. `reviewer` and `security` are read-only in practice. Their Bash use is limited to the commands listed above; they never edit, delete, or commit anything.
-3. `security` teaches with examples of at most 10 lines. The owner (or `developer`, step by step) applies the fix.
+2. `security`, `ai-engineer`, and `mentor` in `[DESIGN]` / `[REVIEW]` mode are read-only. Their Bash use is limited to the commands listed above; they never edit, delete, or commit anything. (For `mentor` this is a rule in its file, not a tool restriction, because `[BUILD]` needs write access.)
+3. `security` teaches with examples of at most 10 lines. The owner (or `mentor` in `[BUILD]` mode, step by step) applies the fix.
 4. No agent commits, pushes, or changes CI or deployment settings without the owner asking.
 5. All agents respect Section 2: defensive scope, synthetic or authorized data only, no secrets.
-6. Agents reply in Romanian. Code, comments, docstrings, commit messages, and docs stay in English.
+6. `mentor` replies in the language the owner uses; the other agents reply in Romanian. Code, comments, docstrings, commit messages, and docs stay in English.
 
 ### Platform-specific risks `security` must always consider
 
