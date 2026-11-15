@@ -68,52 +68,35 @@ Do not introduce new frameworks or major dependencies without discussing the tra
 
 ## 5. Project Roadmap (5 Stages)
 
-1. **Log parser + rule-based detection** on synthetic authentication logs. *(current stage)*
-2. **CI** with GitHub Actions (tests, linting, security scans).
+1. **Log parser + rule-based detection** on synthetic authentication logs. *(done 2026-11-16)*
+2. **CI** with GitHub Actions (tests, linting, security scans). *(next)*
 3. **Docker + deployment** on Ubuntu Server.
 4. **AI integration**: alert summaries, plus prompt-injection testing.
 5. **Monitoring and hardening**: Prometheus/Grafana, secure configuration.
 
-Stay inside the current stage. Do not jump ahead (for example, do not add Docker or React while Stage 1 is unfinished) unless the owner asks.
+Stay inside the current stage. Do not jump ahead unless the owner asks.
 
-### Current Status (Stage 1) — last updated 2026-11-09
+### Current Status — last updated 2026-11-16
 
-Done:
-- Repo created and configured (virtual environment, `pyproject.toml` for pytest).
-- `AuthEvent` model (`src/ingestion/models.py`), `Alert` model (`src/detection/models.py`).
-- Parser: `parse_line`, `parse_lines`, `parse_file` in `src/ingestion/parser.py`, with tests.
-- Synthetic generator: `scripts/generate_logs.py` -> `data/samples/auth.log` + `labels.json`.
-- Rule 1: `detect_brute_force` (T1110.001) in `src/detection/rules.py`, with tests.
-- Rule 2: `detect_password_spraying` (T1110.003), committed in `cac55bc`.
-- Partial CI already exists: `.github/workflows/ci.yml` runs ruff + pytest.
+Stage 1 is complete (branch `feat/stage-1-detection`):
+- Models: `AuthEvent` (`src/ingestion/models.py`), `Alert` (`src/detection/models.py`).
+- Parser: `parse_line`, `parse_lines`, `parse_file` (accepts `Path`); skipped lines are logged safely with `safe_preview` (`repr()` + 200-char limit, against log injection).
+- Generator: `scripts/generate_logs.py` -> `data/samples/auth.log` + `labels.json`.
+- Rules in `src/detection/rules.py`, structured per ADR 0001 (`docs/adr/0001-detection-rule-structure.md`): shared `_group`, `_make_alert` + `RuleSpec`, `_validate`; separate scan loops.
+  - `detect_brute_force`: >= 5 failures, same IP + user, 60 s. High, T1110.001.
+  - `detect_password_spraying`: >= 5 distinct users, same IP, 600 s. Medium, T1110.003.
+  - `detect_success_after_failures`: success after >= 5 failures, same IP + user, 300 s; a success resets the count; the success is in the evidence. Critical, T1078.
+  - Usernames are case-sensitive (Linux treats `Root` and `root` as different accounts).
+- Engine: `run_rules(events, rules=ALL_RULES)` in `src/detection/engine.py`; CLI `python -m scripts.detect data/samples/auth.log --year 2026` prints one JSON line per alert.
+- Evaluation: `python -m evals.detection_eval` -> seeds 0-19: 60/60 attacks detected, 0 false alarms (precision 1.0, recall 1.0). A detection = a labeled attack matched by an alert with the same IP and overlapping time.
+- Tests: unit + `tests/integration/test_pipeline.py`; CI runs ruff + pytest.
 
-Next, in order (tick each box when done):
+Known gaps (from security reviews, planned for later stages):
+- Evidence tuples are unbounded (cap before Stage 4 sends alerts to an LLM).
+- IPv6 rotation inside a /64 and IPv4-mapped IPv6 addresses evade per-IP grouping.
+- Distributed attacks (many IPs) and low-and-slow attacks are not covered.
 
-- [ ] **Step 1: Finish the spraying rule.**
-  - [x] Test fixes (sorting, window leaving, non-default window, mixed outcome, severity + MITRE).
-  - [x] Merge `attempts` into `spray`; docstrings + type hints in `rules.py`.
-  - [ ] Decide: case-sensitive or case-insensitive usernames (Linux treats `Root` and `root` as different).
-  - [ ] Run `mentor` `[REVIEW]`, then `security`, then commit (uncommitted changes: `rules.py`, `test_rules.py`, `.gitignore`).
-- [ ] **Step 2: Housekeeping + rule-structure decision.**
-  - [ ] Fix `.gitignore`: `.pytest_cache` (done, uncommitted), add `.env` and `.ruff_cache`.
-  - [ ] Make Section 6 match the real layout (`scripts/`, `data/samples/`), or decide to move the files.
-  - [ ] Choose how rules share code (ask `mentor` in `[DESIGN]` mode): A = separate code per rule; B = shared sliding-window helper `find_bursts`; C = shared `group_events` + `make_alert` + `RuleSpec`, separate scan loops (architect recommends C, as its own `refactor(detection)` commit with no test changes).
-  - [ ] Write the ADR yourself: `docs/adr/0001-detection-rule-structure.md` (Context, Options, Decision, Consequences, Revisit when).
-- [ ] **Step 3: Rule 3, `detect_success_after_failures`** (success after >= N failures within T seconds, per IP + user).
-  - Answer first: does a success reset the count? Is the success part of the evidence? Severity `high` or `critical`? MITRE T1110 + T1078?
-  - The threshold must be at least 2 (normal traffic has one mistyped password followed by a success) and at most 8 (or the generator's compromise scenario is missed).
-  - Done when: it fires on `build_dataset(42)` only for 203.0.113.77.
-- [ ] **Step 4: End-to-end pipeline + integration test.**
-  - `src/detection/engine.py`: `run_rules(events: Sequence[AuthEvent], rules: Sequence[Rule] = ALL_RULES) -> list[Alert]`; `scripts/detect.py` CLI; `tests/integration/test_pipeline.py`.
-  - Pass the rules a list, not a generator (the first rule would use it up and the others would see nothing).
-  - `parse_file` should log skipped lines safely (`repr()` + length limit, against log injection), and its type hint should accept `Path`.
-  - Done when: `build_dataset(42)` produces alerts for exactly 203.0.113.5, 198.51.100.23 and 203.0.113.77, and none for `10.0.0.*`.
-- [ ] **Step 5: Measure the rules against `labels.json`** (precision and recall).
-  - `match_alerts(...) -> tuple[int, int, int]` (TP, FP, FN; match on same IP + overlapping time; one attack may produce two alerts).
-  - `precision_recall(tp, fp, fn) -> tuple[float, float]`. Decide: `scripts/` or `evals/`.
-  - Done when: seeds 0–19 give recall 1.0 and no false positives on `10.0.0.*`. **This closes Stage 1.**
-
-After Stage 1, finish Stage 2: pin versions in `requirements.txt`, add bandit + pip-audit to CI, use feature branches and PRs instead of committing to `main`.
+Next: Stage 2 (DevSecOps). Pin versions in `requirements.txt`, add bandit + pip-audit (and semgrep) to CI, merge Stage 1 through a pull request, and use feature branches + PRs from now on.
 
 Update this section as the project progresses.
 
@@ -135,14 +118,20 @@ ai-security-platform/
 │   │   ├── models.py     # AuthEvent and related data models
 │   │   └── parser.py     # auth log line -> AuthEvent
 │   ├── detection/        # rule-based detection (Stage 1)
-│   ├── generator/        # synthetic log generator
+│   │   ├── models.py     # Alert
+│   │   ├── rules.py      # detection rules + ALL_RULES
+│   │   └── engine.py     # run_rules: events -> alerts
 │   ├── api/              # FastAPI app (later)
 │   └── analyst/          # LLM-based alert summarization (Stage 4)
-├── tests/                # mirrors src/ structure
-├── evals/                # evaluation scripts and labeled datasets (Stage 4)
+├── scripts/              # CLIs: generate_logs.py (synthetic data), detect.py
+├── tests/
+│   ├── unit/
+│   └── integration/
+├── evals/                # detection_eval.py (precision/recall); AI evals in Stage 4
 ├── data/
-│   └── synthetic/        # generated logs only; never real data
+│   └── samples/          # generated synthetic logs only; never real data
 └── docs/
+    └── adr/              # architecture decision records
 ```
 
 Folders that do not exist yet are created only when their stage begins.
