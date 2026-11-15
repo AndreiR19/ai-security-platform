@@ -2,7 +2,11 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from src.detection.rules import detect_brute_force, detect_password_spraying
+from src.detection.rules import (
+    detect_brute_force,
+    detect_password_spraying,
+    detect_success_after_failures,
+)
 from src.ingestion.models import AuthEvent
 
 START = datetime(2026, 10, 1, 3, 0, 0, tzinfo=UTC)
@@ -207,8 +211,83 @@ def test_usernames_differing_only_in_case_count_as_distinct_for_spraying():
     assert len(alerts) == 1
 
 
-@pytest.mark.parametrize("rule", [detect_brute_force, detect_password_spraying])
+@pytest.mark.parametrize(
+    "rule", [detect_brute_force, detect_password_spraying, detect_success_after_failures]
+)
 @pytest.mark.parametrize("kwargs", [{"threshold": 0}, {"threshold": -1}, {"window_seconds": -1}])
 def test_invalid_parameters_raise_value_error(rule, kwargs):
     with pytest.raises(ValueError):
         rule(failures([0, 1, 2]), **kwargs)
+
+
+def success(offset, ip="203.0.113.5", user="root"):
+    return make_event(source_ip=ip, username=user, outcome="success",
+                      timestamp=START + timedelta(seconds=offset))
+
+
+def test_success_after_five_failures_raises_one_critical_alert():
+    alerts = detect_success_after_failures(failures([0, 2, 4, 6, 8]) + [success(10)])
+    assert len(alerts) == 1
+    alert = alerts[0]
+    assert alert.rule_id == "success_after_failures"
+    assert alert.severity == "critical"
+    assert alert.mitre_technique == "T1078"
+    assert alert.username == "root"
+    assert len(alert.evidence) == 6
+    assert alert.evidence[-1].outcome == "success"
+    assert alert.first_seen == START
+    assert alert.last_seen == START + timedelta(seconds=10)
+
+
+def test_failures_without_success_raise_nothing():
+    assert detect_success_after_failures(failures(range(20))) == []
+
+
+def test_one_typo_then_success_raises_nothing():
+    assert detect_success_after_failures(failures([0]) + [success(5)]) == []
+
+
+def test_success_before_failures_raises_nothing():
+    assert detect_success_after_failures([success(0)] + failures([1, 2, 3, 4, 5])) == []
+
+
+def test_failures_outside_the_window_do_not_count():
+    events = failures([0, 1, 2, 3, 4]) + [success(400)]
+    assert detect_success_after_failures(events) == []
+
+
+@pytest.mark.parametrize("success_at, expected_alerts", [(300, 1), (301, 0)])
+def test_success_after_failures_window_boundary(success_at, expected_alerts):
+    events = failures([0, 0, 0, 0, 0]) + [success(success_at)]
+    assert len(detect_success_after_failures(events)) == expected_alerts
+
+
+def test_success_resets_the_failure_count():
+    events = failures([0, 1, 2, 3, 4]) + [success(5)] + failures([6]) + [success(7)]
+    alerts = detect_success_after_failures(events)
+    assert len(alerts) == 1
+    assert alerts[0].last_seen == START + timedelta(seconds=5)
+
+
+def test_failures_on_another_account_do_not_count():
+    events = failures([0, 1, 2, 3, 4], user="bob") + [success(5, user="alice")]
+    assert detect_success_after_failures(events) == []
+
+
+def test_failures_from_another_ip_do_not_count():
+    events = failures([0, 1, 2, 3, 4], ip="198.51.100.23") + [success(5)]
+    assert detect_success_after_failures(events) == []
+
+
+def test_unsorted_input_still_detects_compromise():
+    events = [success(10)] + list(reversed(failures([0, 2, 4, 6, 8])))
+    alerts = detect_success_after_failures(events)
+    assert len(alerts) == 1
+    assert alerts[0].first_seen == START
+
+
+@pytest.mark.parametrize("count, expected_alerts", [(1, 0), (2, 1), (3, 1)])
+def test_success_after_failures_threshold_boundary(count, expected_alerts):
+    events = failures(range(count)) + [success(count)]
+    assert len(detect_success_after_failures(events, threshold=2)) == expected_alerts
+
