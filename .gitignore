@@ -8,3 +8,5 @@ docs/rules.md
 .env
 .ruff_cache/
 scratch_*.py
+CLAUDE.md
+.claude
