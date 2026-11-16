@@ -1,6 +1,8 @@
+import logging
 import re
 from collections.abc import Iterable
 from datetime import UTC, datetime
+from os import PathLike
 
 from pydantic import ValidationError
 
@@ -18,6 +20,9 @@ _PATTERN = re.compile(
 )
 
 _OUTCOMES = {"Failed": "failure", "Accepted": "success"}
+_LOG_PREVIEW_CHARS = 200
+
+logger = logging.getLogger(__name__)
 
 
 def parse_line(line: str, year: int) -> AuthEvent | None:
@@ -40,15 +45,25 @@ def parse_line(line: str, year: int) -> AuthEvent | None:
         return None
 
 
+def safe_preview(line: str, limit: int = _LOG_PREVIEW_CHARS) -> str:
+    return repr(line[:limit]) + (f" (+{len(line) - limit} chars)" if len(line) > limit else "")
+
+
 def parse_lines(lines: Iterable[str], year: int) -> list[AuthEvent]:
     events = []
-    for line in lines:
+    skipped = 0
+    for number, line in enumerate(lines, start=1):
         event = parse_line(line, year)
-        if event is not None:
+        if event is None:
+            skipped += 1
+            logger.debug("skipped line %d: %s", number, safe_preview(line))
+        else:
             events.append(event)
+    if skipped:
+        logger.info("parsed %d events, skipped %d lines", len(events), skipped)
     return events
 
 
-def parse_file(path: str, year: int) -> list[AuthEvent]:
+def parse_file(path: str | PathLike[str], year: int) -> list[AuthEvent]:
     with open(path, encoding="UTF-8", errors="replace") as f:
         return parse_lines(f, year)
