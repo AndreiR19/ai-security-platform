@@ -1,6 +1,6 @@
 name: CI
 
-on: 
+on:
   push:
     branches: [main]
   pull_request:
@@ -22,3 +22,13 @@ jobs:
       - run: pytest -v
       - run: bandit -r src/
       - run: pip-audit
+
+  semgrep:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install semgrep==1.185.0
+      - run: semgrep scan --config p/python --error --metrics=off src/
