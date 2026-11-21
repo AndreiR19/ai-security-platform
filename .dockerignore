@@ -1,0 +1,10 @@
+*
+!requirements-runtime.txt
+!src/
+!scripts/
+**/__pycache__
+**/*.pyc
+**/.env*
+**/*.pem
+**/*.key
+**/scratch_*
