@@ -32,3 +32,20 @@ jobs:
           python-version: "3.12"
       - run: pip install semgrep==1.185.0
       - run: semgrep scan --config p/python --error --metrics=off src/
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: docker build -t aisoc:ci .
+      - run: |
+          docker run --rm \
+            --read-only \
+            --network none \
+            --cap-drop ALL \
+            --security-opt no-new-privileges \
+            --memory 256m --memory-swap 256m \
+            --cpus 1 --pids-limit 64 \
+            -v "$(pwd)/data/samples:/data:ro" \
+            aisoc:ci /data/auth.log --year 2026 > alerts.jsonl
+          test "$(wc -l < alerts.jsonl)" -eq 4
