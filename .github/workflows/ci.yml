@@ -50,3 +50,10 @@ jobs:
             -v "$(pwd)/data/samples:/data:ro" \
             aisoc:ci /data/auth.log --year 2026 > alerts.jsonl
           test "$(wc -l < alerts.jsonl)" -eq 4
+      - run: docker save aisoc:ci -o image.tar
+      - run: |
+          docker run --rm \
+            -v "$(pwd)/image.tar:/image.tar:ro" \
+            aquasec/trivy:0.76.2@sha256:8f6bb947dbc528902e11f2f5be52f7b519f6a39d5d148f41166f2040499768fb \
+            image --input /image.tar \
+            --ignore-unfixed --severity HIGH,CRITICAL --exit-code 1
