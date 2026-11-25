@@ -43,6 +43,16 @@ pip install -r requirements.txt
 pytest -v
 ```
 
+## Run with Docker Compose
+
+`compose.yaml` defines the `detector` service with the same hardening as the `docker run` command below (non-root user, read-only filesystem, no network, all capabilities dropped, no privilege escalation, memory/CPU/process limits, logs mounted read-only). Build and run detection on the sample logs:
+
+```bash
+docker compose run --rm --build detector
+```
+
+On a Linux server where your user is not in the `docker` group, prefix the command with `sudo`. Membership in the `docker` group is equivalent to root on the host.
+
 ## Run with Docker
 
 Build the image:
