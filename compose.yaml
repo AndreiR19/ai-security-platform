@@ -1,0 +1,26 @@
+services:
+  detector:
+    build: .
+    image: aisoc:dev
+    pull_policy: never
+    user: "10001:10001"
+    read_only: true
+    network_mode: none
+    cap_drop:
+      - ALL
+    security_opt:
+      - "no-new-privileges:true"
+    mem_limit: "256m"
+    memswap_limit: "256m"
+    cpus: 1
+    pids_limit: 64
+    ulimits:
+      core: 0
+    volumes:
+      - type: bind
+        source: ./data/samples
+        target: /data
+        read_only: true
+        bind:
+          create_host_path: false
+    command: ["/data/auth.log", "--year", "2026"]
