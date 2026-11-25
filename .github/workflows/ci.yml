@@ -22,6 +22,7 @@ jobs:
       - run: pytest -v
       - run: bandit -r src/
       - run: pip-audit
+      - run: pip-audit -r requirements-runtime.txt --require-hashes --disable-pip
 
   semgrep:
     runs-on: ubuntu-latest

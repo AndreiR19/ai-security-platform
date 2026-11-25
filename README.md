@@ -5,8 +5,29 @@ A defensive security operations platform for detecting, analyzing, and triaging 
 ## Requirements
 
 - Python 3.12+
-- Runtime dependency: pydantic (`requirements-runtime.txt`)
+- Runtime dependency: pydantic (`requirements-runtime.in`, locked with hashes in `requirements-runtime.txt`)
 - Development dependencies: pytest, ruff, bandit, pip-audit (`requirements.txt`)
+
+### Updating the runtime lock file
+
+`requirements-runtime.txt` is generated; do not edit it by hand. Change `requirements-runtime.in`, then regenerate the lock inside the same base image the Docker build uses (Linux, Python 3.12):
+
+```powershell
+$out = "$env:TEMP\aisop-lock"
+New-Item -ItemType Directory -Force $out | Out-Null
+docker run --rm --user 10001:10001 -e HOME=/tmp `
+  -v "${out}:/out" `
+  -v "${PWD}/requirements-runtime.in:/out/requirements-runtime.in:ro" `
+  -w /out `
+  python:3.12-slim@sha256:5e2bdb1b0d542d5039cffb8181c65930093949194a65c365dfb1b0fe13a4fa5b `
+  sh -c "pip install --quiet --no-cache-dir --no-warn-script-location --user pip-tools==7.7.0 && python -m piptools compile --quiet --generate-hashes --strip-extras --no-emit-index-url -o requirements-runtime.txt requirements-runtime.in"
+Copy-Item "$out\requirements-runtime.txt" requirements-runtime.txt
+git diff requirements-runtime.txt
+```
+
+The container runs as a non-root user and only sees the `.in` file (read-only) and an empty output folder, never the repository or `.git/`. Review the diff before committing.
+
+The Docker build installs it with `--require-hashes --only-binary=:all: --no-deps`, so any package whose hash does not match the lock fails the build.
 
 ## Getting started
 
