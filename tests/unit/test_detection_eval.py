@@ -19,6 +19,7 @@ def alert(ip="203.0.113.5", start=0, end=60):
         first_seen=START + timedelta(seconds=start),
         last_seen=START + timedelta(seconds=end),
         evidence=(event,),
+        event_count=1,
     )
 
 

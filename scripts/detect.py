@@ -11,9 +11,7 @@ from src.ingestion.parser import parse_file
 
 
 def alert_summary(alert: Alert) -> dict[str, object]:
-    summary = alert.model_dump(mode="json", exclude={"evidence"})
-    summary["event_count"] = len(alert.evidence)
-    return summary
+    return alert.model_dump(mode="json", exclude={"evidence"})
 
 
 def main(argv: Sequence[str] | None = None) -> int:

@@ -3,7 +3,7 @@ from collections.abc import Callable, Hashable, Iterable, Sequence
 from dataclasses import dataclass
 from typing import Literal
 
-from src.detection.models import Alert
+from src.detection.models import MAX_EVIDENCE_EVENTS, Alert
 from src.ingestion.models import AuthEvent
 
 Severity = Literal["low", "medium", "high", "critical"]
@@ -97,8 +97,17 @@ def _make_alert(spec: RuleSpec, evidence: Sequence[AuthEvent], per_user: bool) -
         username=evidence[0].username if per_user else None,
         first_seen=evidence[0].timestamp,
         last_seen=evidence[-1].timestamp,
-        evidence=tuple(evidence),
+        evidence=_cap(evidence),
+        event_count=len(evidence),
     )
+
+
+def _cap(evidence: Sequence[AuthEvent]) -> tuple[AuthEvent, ...]:
+    if len(evidence) <= MAX_EVIDENCE_EVENTS:
+        return tuple(evidence)
+    head = MAX_EVIDENCE_EVENTS // 2
+    tail = MAX_EVIDENCE_EVENTS - head
+    return (*evidence[:head], *evidence[-tail:])
 
 
 def _gap(later: AuthEvent, earlier: AuthEvent) -> float:

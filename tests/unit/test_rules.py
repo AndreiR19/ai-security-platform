@@ -2,6 +2,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
+from src.detection.models import MAX_EVIDENCE_EVENTS
 from src.detection.rules import (
     detect_brute_force,
     detect_password_spraying,
@@ -74,7 +75,8 @@ def test_unsorted_input_still_detects():
 def test_one_long_burst_raises_a_single_alert():
     alerts = detect_brute_force(failures(range(0, 120, 3)))
     assert len(alerts) == 1
-    assert len(alerts[0].evidence) == 40
+    assert len(alerts[0].evidence) == MAX_EVIDENCE_EVENTS
+    assert alerts[0].event_count == 40
 
 def test_two_separate_bursts_raise_two_alerts():
     events = failures([0, 1, 2, 3, 4]) + failures([3600, 3601, 3602, 3603, 3604])
@@ -117,7 +119,8 @@ def test_one_long_spray_raises_a_single_alert():
     # 30 events, 30 s apart -> last one at 870 s, so the 600 s window really slides.
     alerts = detect_password_spraying(spray(USERS * 6))
     assert len(alerts) == 1
-    assert len(alerts[0].evidence) == 30
+    assert len(alerts[0].evidence) == MAX_EVIDENCE_EVENTS
+    assert alerts[0].event_count == 30
     assert alerts[0].first_seen == START
     assert alerts[0].last_seen == START + timedelta(seconds=870)
 
@@ -291,3 +294,17 @@ def test_success_after_failures_threshold_boundary(count, expected_alerts):
     events = failures(range(count)) + [success(count)]
     assert len(detect_success_after_failures(events, threshold=2)) == expected_alerts
 
+
+def test_long_burst_keeps_first_and_last_events():
+    alerts = detect_brute_force(failures(range(0, 120, 3)))
+    offsets = [(e.timestamp - START).total_seconds() for e in alerts[0].evidence]
+    assert offsets == [0, 3, 6, 9, 12, 105, 108, 111, 114, 117]
+
+
+def test_long_success_after_failures_keeps_the_success():
+    alerts = detect_success_after_failures(failures(range(0, 60, 2)) + [success(60)])
+    alert = alerts[0]
+    assert alert.event_count == 31
+    assert len(alert.evidence) == MAX_EVIDENCE_EVENTS
+    assert alert.evidence[-1].outcome == "success"
+    assert alert.last_seen == START + timedelta(seconds=60)
